@@ -4,7 +4,7 @@ CXX = clang++
 override CFLAGS :=  $(CFLAGS) -static -O3 -std=c17 -Wno-unused -Wno-unused-parameter -DHAVE_CONFIG_H -Wno-implicit-function-declaration
 override CXXFLAGS :=  $(CXXFLAGS) -static -O3 -std=c++17 -stdlib=libc++
 
-override LDFLAGS := $(LDFLAGS) ke
+override LDFLAGS := $(LDFLAGS) -lz -lpthread -lrt
 INCLUDES := -Iinclude -Iutils/include -Idtc/libfdt -Izopfli/src -Imincrypt/include -Izlib -Ixz/src/liblzma/api -DSIG_SETMASK=0
 LIBLZMA_INCLUDES = \
         -Ixz_config \
@@ -166,11 +166,7 @@ FMTLIB_OBJ = $(patsubst %.cc,obj/%.o,$(FMTLIB_SRC))
 
 .PHONY: all libmagiskboot.a
 
-all: libbz2.a libfdt.a libzopfil.a fmtlib.a liblz4.a liblzma.a  libmincrypt.a libutils.a libmagiskboot.a magiskboot.exe
-
-magiskboot.exe:
-	@echo "    LINKING EXECUTABLE BINARY magiskboot"
-	sh -c "clang++ -static -stdlib=libc++ -o magiskboot.exe libmagiskboot.a libfdt.a fmtlib.a libbz2.a -lz libutils.a liblzma.a liblz4.a libzopfli.a libmincrypt.a -lpthread -lrt"
+all: bin/magiskboot.exe
 
 obj/%.o: %.c
 	@mkdir -p `dirname $@`
@@ -217,7 +213,7 @@ libbz2.a:
 	cd $(BZIP2_PATH) && $(MAKE) libbz2.a
 	mv $(BZIP2_PATH)/libbz2.a ./
 
-libzopfil.a:
+libzopfli.a:
 	cd $(ZOPFLI_PATH) && $(MAKE) libzopfli.a
 	mv $(ZOPFLI_PATH)/libzopfli.a ./
 
@@ -229,10 +225,18 @@ liblz4.a:
 	cd $(LZ4_PATH) && $(MAKE) lib
 	mv $(LZ4_PATH)/lib/liblz4.a ./
 
+bin/magiskboot.exe: libmagiskboot.a libfdt.a fmtlib.a libbz2.a libutils.a liblzma.a liblz4.a libzopfli.a libmincrypt.a
+	@echo "    LINKING EXECUTABLE BINARY magiskboot"
+	@mkdir -p `dirname $@`
+	@$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo "    COPY    CYGWIN LIBRARYS"
+	@cp /bin/cygwin1.dll `dirname $@`/cygwin1.dll
+
 # Remove all libraries and binaries
 clean:
 	@echo "    CLEAN";
 	@echo "    RM    all"
+	@rm -rf ./bin
 	@cd $(DTC_PATH) && $(MAKE) clean
 	@cd $(BZIP2_PATH) && $(MAKE) clean
 	@cd $(ZOPFLI_PATH) && $(MAKE) clean
@@ -240,3 +244,4 @@ clean:
 	@rm -f magiskboot.exe *.a *.o $(LIBMAGISKBOOT_OBJ)
 	@echo "    RM    obj"
 	@rm -rf obj/
+
